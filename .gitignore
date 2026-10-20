@@ -1,0 +1,89 @@
+# ============================================
+# RK3588S_CarTerminal .gitignore
+# ============================================
+
+# --- Build artifacts (qmake/make/cmake) ---
+build_*/
+debug/
+release/
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.so.*
+Makefile
+Makefile.Debug
+Makefile.Release
+Makefile.test.Debug
+Makefile.test.Release
+.qmake.stash
+.qmake.cache
+object_script.*
+NUL.Debug
+NUL.Release
+ui_*.h
+
+# --- CMake artifacts ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+*.vcxproj
+*.sln
+
+# --- Log / runtime outputs ---
+logs/
+log/
+*.log
+recordings/
+*.mp4
+*.h264
+*.h265
+
+# --- Large reference materials (not source code) ---
+# 芯片手册、原理图、调试软件等参考资料不纳入版本管理
+ATGM336H-5N模块资料/
+*.avi
+*.zip
+*.pdf
+!docs/*.pdf
+!docs/**/*.pdf
+
+# 根目录散落临时/笔记文件（应放入 docs/ 或删除）
+DHT11接线定义.png
+bus_annotated.jpg
+rk3588s内核.md
+报错.txt
+新建文本文档.txt
+新建 文本文档.txt
+驱动修改备份文件.md
+
+# 音频素材（体积大，不属于工程代码）
+myMusic/
+*.mp3
+*.flac
+*.wav
+!config/sherpa-onnx-model/test_wavs/*.wav
+
+# --- Models (too large for git, use separate storage) ---
+config/sherpa-onnx-model/
+config/kws_model/
+*.rknn
+*.onnx
+*.bin
+*.rkllm
+!tests/**/sample_*.nv12
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# --- Baseline verification outputs ---
+baseline_result.log
+baseline_result.*

@@ -1,0 +1,74 @@
+===== APPLICATION GIT STATUS =====
+ M CarTerminal.pro
+ M config/camera_settings.conf
+ M config/vehicle_devices.conf
+ M config/weather_settings.conf
+ M device/ap3216.cpp
+ M device/ap3216.h
+ M device/ap3216device.cpp
+ M device/ap3216device.h
+ M device/ap3216worker.cpp
+ M device/ap3216worker.h
+ M device/dht11device.cpp
+ M device/dht11device.h
+ M device/i2cbusses.c
+ M device/i2cbusses.h
+ M device/mpu6050device.h
+ M device/mpu6050worker.cpp
+ M device/mpu6050worker.h
+ M device/smbus.c
+ M device/smbus.h
+ M device/vehicledeviceconfig.cpp
+ M device/vehicledeviceconfig.h
+ M docs/PROJECT_ROADMAP.md
+ M gui/Map/baidumap.cpp
+ M gui/Monitor/monitor.cpp
+ M gui/Monitor/monitor.h
+ M gui/Music/musicplayer.cpp
+ M gui/Music/musicplayer.h
+ M gui/Music/musicplayer.ui
+ M gui/Music/searchmusic.cpp
+ M gui/Music/searchmusic.h
+ M gui/Music/searchmusic.ui
+ M gui/Weather/weather.cpp
+ M gui/clock.cpp
+ M gui/clock.h
+ M gui/clock.ui
+ M gui/mainwindow.cpp
+ M gui/mainwindow.h
+ M gui/mainwindow.ui
+ M gui/settingwindow.h
+ M gui/settingwindow.ui
+ M main.cpp
+ M media/mp4_recorder.cpp
+ M media/mp4_recorder.h
+ M resources/img.qrc
+ M tests/media/test_frame_packet.cpp
+ M voice/tts/src/header/cppjieba/TextRankExtractor.hpp
+ M voice/tts/src/header/limonp/Md5.hpp
+ M voice/tts/src/tn/openfst/src/CMakeLists.txt
+?? build-ap3216-iio-aarch64/
+?? build-mpu6500-ab-aarch64/
+?? build-week7-vehicleio-aarch64/
+?? device/ap3216_iiobackend.cpp
+?? device/ap3216_iiobackend.h
+?? device/ap3216_useri2cbackend.cpp
+?? device/ap3216_useri2cbackend.h
+?? device/iimusamplesource.h
+?? device/mpu6050_iiobuffersource.cpp
+?? device/mpu6050_iiobuffersource.h
+?? device/vehicleioinput.cpp
+?? device/vehicleioinput.h
+?? docs/DRIVER_ARCHITECTURE.md
+?? docs/DRIVER_MODIFICATIONS.md
+?? scripts/run-mpu-user-i2c-120s.sh
+?? sht31.c
+
+===== KERNEL GIT STATUS =====
+ M Documentation/devicetree/bindings/vendor-prefixes.yaml
+ M arch/arm64/boot/dts/rockchip/rk3588s-atk-quarkpi-ca2.dts
+ M arch/arm64/configs/rockchip_linux_defconfig
+ M drivers/input/misc/Kconfig
+ M drivers/input/misc/Makefile
+?? Documentation/devicetree/bindings/input/alientek,quarkpi-vehicle-io.yaml
+?? drivers/input/misc/quarkpi-vehicle-io.c

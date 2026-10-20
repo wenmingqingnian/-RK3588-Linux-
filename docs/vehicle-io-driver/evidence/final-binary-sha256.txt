@@ -1,0 +1,4 @@
+===== FINAL BINARY SHA256 =====
+e013f586f9e5a36fd18d1d5cb25d6003ba2231cead788ea47f030fcf17eb2539  <HOME>/RK3588S_CarTerminal/build-week7-vehicleio-aarch64/CarTerminal
+e013f586f9e5a36fd18d1d5cb25d6003ba2231cead788ea47f030fcf17eb2539  <HOME>/quarkpi-sdk-clean/buildroot/package/car-terminal-bin/files/CarTerminal
+e013f586f9e5a36fd18d1d5cb25d6003ba2231cead788ea47f030fcf17eb2539  /usr/bin/CarTerminal

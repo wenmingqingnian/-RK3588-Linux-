@@ -1,0 +1,19 @@
+===== BOARD FINAL STATE =====
+BOOT_ID=fd569c6f-6702-469c-80f1-5a7971466c9c
+UPTIME=1303.86 8057.80
+
+PROCESS:
+PID=1426
+PROCESS_ALIVE=YES
+EXE=/usr/bin/CarTerminal
+INPUT_FDS:
+lr-x------ 1 root root 64 Jan  1  1970 58 -> /dev/input/event2
+
+BINARY:
+e013f586f9e5a36fd18d1d5cb25d6003ba2231cead788ea47f030fcf17eb2539  /usr/bin/CarTerminal
+
+VEHICLE_IO:
+EVENT_DEVICE=/dev/input/event2
+
+GPIO:
+ gpio-131 (                    |?                   ) out hi 

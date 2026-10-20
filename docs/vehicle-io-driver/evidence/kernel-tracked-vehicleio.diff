@@ -1,0 +1,99 @@
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index 0ed7dda8a..c0605f8fa 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -55,6 +55,8 @@ patternProperties:
+     description: Aeroflex Gaisler AB
+   "^al,.*":
+     description: Annapurna Labs
++  "^alientek,.*":
++    description: ALIENTEK
+   "^allegro,.*":
+     description: Allegro DVT
+   "^allo,.*":
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-atk-quarkpi-ca2.dts b/arch/arm64/boot/dts/rockchip/rk3588s-atk-quarkpi-ca2.dts
+index df8ab7f06..c7f3cc6c6 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-atk-quarkpi-ca2.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-atk-quarkpi-ca2.dts
+@@ -15,6 +15,20 @@
+ / {
+ 	model = "Rockchip RK3588S EVB8 LP4X V10 Board";
+ 	compatible = "rockchip,rk3588s-evb8-lp4x-v10", "rockchip,rk3588";
++
++	vehicle-io {
++		compatible = "alientek,quarkpi-vehicle-io";
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&vehicle_io_pins>;
++
++		reverse-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_LOW>;
++		acc-gpios = <&gpio4 RK_PA4 GPIO_ACTIVE_LOW>;
++		button-gpios = <&gpio4 RK_PA5 GPIO_ACTIVE_LOW>;
++
++		debounce-ms = <20>;
++		status = "okay";
++	};
+ };
+ 
+ &i2c3 {
+@@ -67,4 +81,13 @@ ap3216c_int_pin: ap3216c-int-pin {
+ 			rockchip,pins = <4 RK_PA1 RK_FUNC_GPIO &pcfg_pull_up>;
+ 		};
+ 	};
++
++	vehicle-io {
++		vehicle_io_pins: vehicle-io-pins {
++			rockchip,pins =
++				<4 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>,
++				<4 RK_PA4 RK_FUNC_GPIO &pcfg_pull_up>,
++				<4 RK_PA5 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
+ };
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index 65c094018..7b585f990 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -279,6 +279,7 @@ CONFIG_LS_AP321XX=y
+ CONFIG_PROXIMITY_DEVICE=y
+ CONFIG_PS_AP321XX=y
+ CONFIG_INPUT_MISC=y
++CONFIG_INPUT_QUARKPI_VEHICLE_IO=y
+ CONFIG_INPUT_UINPUT=y
+ CONFIG_INPUT_RK805_PWRKEY=y
+ # CONFIG_SERIO is not set
+diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
+index 362e8a019..61570882c 100644
+--- a/drivers/input/misc/Kconfig
++++ b/drivers/input/misc/Kconfig
+@@ -576,6 +576,21 @@ config INPUT_PWM_VIBRA
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called pwm-vibra.
+ 
++config INPUT_QUARKPI_VEHICLE_IO
++	tristate "QuarkPi Vehicle I/O driver"
++	depends on OF
++	select GPIOLIB
++	help
++	  Say Y here to enable the QuarkPi-CA2 Vehicle I/O platform driver.
++	  This driver monitors vehicle signals (reverse, ACC and button) via
++	  GPIO interrupts and reports them as EV_KEY events through the
++	  Linux Input subsystem.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called quarkpi-vehicle-io.
++
++	  If unsure, say N.
++
+ config INPUT_RK805_PWRKEY
+ 	tristate "Rockchip RK805 PMIC power key support"
+ 	depends on MFD_RK808
+diff --git a/drivers/input/misc/Makefile b/drivers/input/misc/Makefile
+index a48e5f2d8..73af0f983 100644
+--- a/drivers/input/misc/Makefile
++++ b/drivers/input/misc/Makefile
+@@ -85,3 +85,4 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
+ obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
+ obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
+ 
++obj-$(CONFIG_INPUT_QUARKPI_VEHICLE_IO)	+= quarkpi-vehicle-io.o

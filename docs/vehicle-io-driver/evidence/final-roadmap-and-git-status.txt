@@ -1,0 +1,945 @@
+===== FINAL ROADMAP MARKER =====
+1312:<!-- WEEK7_VEHICLE_IO_FINAL_FREEZE_V1_BEGIN -->
+1346:<!-- WEEK7_VEHICLE_IO_FINAL_FREEZE_V1_END -->
+
+===== APPLICATION GIT STATUS =====
+ M CarTerminal.pro
+ M config/camera_settings.conf
+ M config/vehicle_devices.conf
+ M config/weather_settings.conf
+ M device/ap3216.cpp
+ M device/ap3216.h
+ M device/ap3216device.cpp
+ M device/ap3216device.h
+ M device/ap3216worker.cpp
+ M device/ap3216worker.h
+ M device/dht11device.cpp
+ M device/dht11device.h
+ M device/i2cbusses.c
+ M device/i2cbusses.h
+ M device/mpu6050device.h
+ M device/mpu6050worker.cpp
+ M device/mpu6050worker.h
+ M device/smbus.c
+ M device/smbus.h
+ M device/vehicledeviceconfig.cpp
+ M device/vehicledeviceconfig.h
+ M docs/PROJECT_ROADMAP.md
+ M gui/Map/baidumap.cpp
+ M gui/Monitor/monitor.cpp
+ M gui/Monitor/monitor.h
+ M gui/Music/musicplayer.cpp
+ M gui/Music/musicplayer.h
+ M gui/Music/musicplayer.ui
+ M gui/Music/searchmusic.cpp
+ M gui/Music/searchmusic.h
+ M gui/Music/searchmusic.ui
+ M gui/Weather/weather.cpp
+ M gui/clock.cpp
+ M gui/clock.h
+ M gui/clock.ui
+ M gui/mainwindow.cpp
+ M gui/mainwindow.h
+ M gui/mainwindow.ui
+ M gui/settingwindow.h
+ M gui/settingwindow.ui
+ M main.cpp
+ M media/mp4_recorder.cpp
+ M media/mp4_recorder.h
+ M resources/img.qrc
+ M tests/media/test_frame_packet.cpp
+ M voice/tts/src/header/cppjieba/TextRankExtractor.hpp
+ M voice/tts/src/header/limonp/Md5.hpp
+ M voice/tts/src/tn/openfst/src/CMakeLists.txt
+?? build-ap3216-iio-aarch64/
+?? build-mpu6500-ab-aarch64/
+?? build-week7-vehicleio-aarch64/
+?? device/ap3216_iiobackend.cpp
+?? device/ap3216_iiobackend.h
+?? device/ap3216_useri2cbackend.cpp
+?? device/ap3216_useri2cbackend.h
+?? device/iimusamplesource.h
+?? device/mpu6050_iiobuffersource.cpp
+?? device/mpu6050_iiobuffersource.h
+?? device/vehicleioinput.cpp
+?? device/vehicleioinput.h
+?? docs/DRIVER_ARCHITECTURE.md
+?? docs/DRIVER_MODIFICATIONS.md
+?? docs/vehicle-io-driver/
+?? scripts/run-mpu-user-i2c-120s.sh
+?? sht31.c
+
+===== ROADMAP DIFF =====
+diff --git a/docs/PROJECT_ROADMAP.md b/docs/PROJECT_ROADMAP.md
+index 57235ea..893ba7e 100644
+--- a/docs/PROJECT_ROADMAP.md
++++ b/docs/PROJECT_ROADMAP.md
+@@ -21,12 +21,13 @@
+ | 百度地图 + WGS84 | ✓ 板端可用 | 地图集成 |
+ | Qt5 GUI（多页面） | ✓ 板端可用 | 驱动数据展示终端 |
+ | buzzer | ✓ 板端可用 | 用户态 GPIO 控制基线 |
+-| DHT11 | △ 应用 IIO 适配完成，真实节点待验证 | 主线驱动 DTS 使能与应用回归 |
++| DHT11 | ❌ 已放弃（单总线时序脆弱） | 替换为 SHT30（标准 I2C） |
++| SHT30 | 待引入 | 主线 IIO 驱动 sht31.c + DTS 使能 |
+ | AP3216C | △ 用户态适配完成，硬件/内核驱动未验收 | 自研 IIO 驱动目标 |
+ | FrameBufferPool + ThreadPool + VLOG | ✓ 板端可用 | 基础设施 |
+ | 应用层缓存 IDR + forceIDR 机制 | ✓ 板端可用 | 多线程设计 |
+ | RKNN 检测联动 + ZMQ 优雅退出 | ✓ 板端可用 | 端侧 AI 接入 |
+-| MPU6050 用户态 I2C 驱动 | ✓ 板端可用 | I2C 协议理解（待升级为 IIO） |
++| MPU6500 用户态 I2C 驱动 | ✓ 板端可用 | I2C 协议理解（待升级为 IIO） |
+ | 视频录像（FFmpeg muxer） | ✓ 板端可用 | 多媒体闭环 |
+ 
+ ### 新计划定位
+@@ -42,7 +43,7 @@
+ |------|------|---------|------------|
+ | **P0 前置** | 第1周 | 出厂镜像软件基线封板 | 软件主任务 |
+ | **P0** | 第2-3周 | 自编译 BSP（U-Boot/Kernel/DTB/RootFS/SD 启动） | 用基线软件回归 |
+-| **P1** | 第4周 | MPU6050 IIO 适配 | Qt 改 IIO Buffer 读取（引入 IMU 专用数据源接口） |
++| **P1** | 第4周 | MPU6500 IIO 适配 | Qt 改 IIO Buffer 读取（引入 IMU 专用数据源接口） |
+ | **P1** | 第5-6周 | 自研 AP3216C IIO 驱动 | 环境页面、阈值告警 |
+ | **P1** | 第7周 | vehicle-io platform/Input 驱动 | 倒车/ACC 事件接入 Qt |
+ | **P2** | 第8-9周 | 第二种 Sensor V4L2 驱动移植 | 复用并扩展现有 FrameBroker/MediaPipeline |
+@@ -57,7 +58,7 @@
+ 
+ | 截止时间 | 必须达到 | 简历可写 |
+ |---------|---------|---------|
+-| 第6周末 | 自编译 BSP + MPU6050 IIO 适配 + AP3216C 自研驱动 | Linux I2C/IIO 驱动闭环 |
++| 第6周末 | 自编译 BSP + MPU6500 IIO 适配 + AP3216C 自研驱动 | Linux I2C/IIO 驱动闭环 |
+ | 第7周末 | 上面 + Vehicle-IO platform/Input | 加 Platform/GPIO IRQ/Input |
+ | 第9周末 | 上面 + 第二种 Sensor 单路出图 | 加 V4L2/Media Graph |
+ | 第10周末 | 上面 + 双摄 + 倒车链路 | 加端到端集成 |
+@@ -83,7 +84,7 @@
+ | 6 | RTSP 推流 | VLC 拉流 `rtsp://board-ip:8554/live` | 1s 内出图 |
+ | 7 | MP4 录像 | `record/` 目录生成 mp4 | ffprobe 能解析 |
+ | 8 | GPS 串口 | `cat /dev/ttyS5` | NMEA 报文 |
+-| 9 | MPU6050 用户态 | Qt 姿态页 | pitch/roll 有变化 |
++| 9 | MPU6500 用户态 | Qt 姿态页 | pitch/roll 有变化 |
+ | 10 | ASR 固定指令 | "打开监控" | GUI 切换 |
+ | 11 | 启动/退出 | 启动+正常退出 3 次 | 无崩溃/泄漏 |
+ 
+@@ -126,48 +127,521 @@ git push origin factory-image-software-baseline
+ 
+ ### 第2-3周：自编译 BSP 镜像（2周）
+ 
+-**目标：自己的 U-Boot + Kernel + DTB + RootFS 跑起来，能 SSH 登录、加载自定义 .ko。**
++**目标：自己的 U-Boot + Kernel + DTB + RootFS 跑起来，能 SSH 登录、加载自定义 .ko，并完成基线软件回归测试。**
+ 
+-#### 第2周任务
++**SDK 基线（2026-07-21 验证）**：
++- 路径：`<HOME>/quarkpi-sdk-clean`
++- 内核版本：Linux 5.10.209
++- 工具链：aarch64-linux-gnu-gcc 9.4.0
++- 已就绪：I2C3/UART5 已启用、IMX415 三路 DTS 已配置、RKNN/RGA/DRM/V4L2 驱动全部 =y
++- 需改动：MPU6500 IIO 驱动未启用、SHT30 驱动不存在、Buildroot 依赖包未启用
+ 
+-| 序号 | 任务 | 验收 |
+-|------|------|------|
+-| 1 | 确认 QuarkPi-CA2 board defconfig | `make defconfig` 无错 |
+-| 2 | 编译 U-Boot | `u-boot.bin` 生成 |
+-| 3 | 编译 Kernel | `Image` + `rk3588s-atk-quarkpi-ca2.dtb` 生成 |
+-| 4 | Buildroot rootfs 基础包 | `rootfs.ext4` 能挂载 |
+-| 5 | 打包 SD 卡镜像 | `dd` 烧录能启动 |
+-| 6 | 从 SD 卡启动 | 串口有 login prompt |
+-| 7 | 验证 SSH/网络/存储 | `ssh user@board` 通 |
++#### 第2周任务：内核 + U-Boot
+ 
+-#### 第3周任务
++> **核心原则：先编译原始镜像 → 再修改 → 重新编译**
++>
++> 绝对不要直接改 SDK 再编译。正确流程是两步走：
++> 1. 第1步：用 SDK 原始配置编译一次，验证编译环境和 SDK 完整性
++> 2. 第2步：在原始镜像验证通过后，再修改 defconfig/DTS/源码，重新编译
++>
++> 这样做的目的：编译失败时能立刻定位是 SDK 问题还是你的修改问题，避免排查无门。
+ 
+-| 序号 | 任务 | 验收 |
+-|------|------|------|
+-| 8 | 用基线软件回归对比 | factory-image-software-baseline tag 的 CarTerminal 能运行 |
+-| 9 | 编译和加载自定义 .ko | `insmod hello.ko` + `dmesg` 看到 |
+-| 10 | 一键编译脚本 | `./build_all.sh` 全流程 |
+-| 11 | 一键部署脚本 | `./deploy_sd.sh` 烧录 |
+-| 12 | SD 卡失败回退流程 | 出厂 eMMC 能启动 |
+-| 13 | dtbo overlay 重新合并 | i2c3-m1、uart5-m1 生效 |
++##### 任务 2.0：原始 SDK 编译验证（最先做，不改任何配置）
++
++**优先级**：P0（所有后续任务的前置条件）
++**目的**：验证 SDK 完整性 + 工具链 + 烧录流程，得到基准镜像
++**预计耗时**：1-2 小时（首次编译）
++**产出**：可启动的原始 SD 卡镜像
++
++```bash
++cd ~/quarkpi-sdk-clean
++
++# 不改任何东西，直接用 SDK 默认配置编译
++./build.sh kernel      # 编译内核
++./build.sh uboot       # 编译 U-Boot
++./build.sh buildroot   # 编译 rootfs
++./build.sh firmware    # 打包镜像
++
++# 烧录到 SD 卡（eMMC 保持不动）
++sudo ./rkflash.sh
++```
++
++**验证标准**：
++- ✅ 内核编译无错误 → `Image` + `rk3588s-atk-quarkpi-ca2.dtb` 生成
++- ✅ U-Boot 编译无错误 → `uboot.img` + `idbloader.img` 生成
++- ✅ Buildroot 编译无错误 → `rootfs.ext4` 生成
++- ✅ SD 卡烧录成功 → 板端能启动到 login prompt
++- ✅ SSH 能登录
++- ✅ `ls /dev/i2c-* /dev/ttyS* /dev/video* /dev/gpiochip*` 基础设备存在
++
++**失败处理**：
++- 如果原始 SDK 编译失败 → SDK 本身有问题，联系供应商或换 SDK 版本
++- 如果烧录失败 → 检查 SD 卡、烧录工具、启动开关
++- 如果启动失败 → 检查 U-Boot bootcmd、内核 cmdline、rootfs 挂载
++
++**关键产出**：得到一个"基准镜像"，后续所有修改都以此为对比基础。
++
++##### 任务 2.1：确认 PCB 原理图（阻塞项，可与 2.0 并行）
++
++**优先级**：P0（阻塞 DTS 修改）
++**产出**：3 个 GPIO/I2C 信息记录
++
++- 查 ATK QuarkPi-CA2 原理图
++- 确认 MPU6500 中断引脚 GPIO 编号
++- 确认 AP3216C 接的 I2C 总线和地址
++- 确认 SHT30 接的 I2C 总线和地址
++
++##### 任务 2.2：修改内核 defconfig
++
++**优先级**：P0
++**依赖**：任务 2.3 完成（SHT31 CONFIG 依赖源文件存在）
++**产出**：defconfig diff 补丁
++
++修改 `arch/arm64/configs/rockchip_linux_defconfig`：
++
++```
++# 必加（启用 MPU6500 IIO 驱动）
++CONFIG_INV_MPU6050_IIO=y
++CONFIG_INV_MPU6050_I2C=y
++
++# 必加（启用 SHT30 驱动，依赖 2.3 backport）
++CONFIG_SHT31=y
++
++# 必确认（日志显示仅 gki.config =m，需在主 defconfig 中设为 =y）
++CONFIG_GPIO_ROCKCHIP=y
++
++# 必确认（IIO 基础设施，通常已被 select，但要验证）
++CONFIG_IIO=y
++CONFIG_IIO_BUFFER=y
++CONFIG_IIO_TRIGGERED_BUFFER=y
++CONFIG_REGMAP=y
++CONFIG_REGMAP_I2C=y
++```
++
++##### 任务 2.3：Backport sht31.c 驱动
++
++**优先级**：P0（可与 2.1 并行，独立任务）
++**产出**：3 个文件改动
++
++- 从主线内核 5.15+ 获取 `sht31.c` 源文件
++- 放到 `drivers/iio/humidity/sht31.c`
++- 修改 `drivers/iio/humidity/Kconfig` 添加：
++  ```
++  config SHT31
++      tristate "Sensirion SHT3x humidity and temperature sensor"
++      depends on I2C
++      select REGMAP_I2C
++      help
++        ...
++  ```
++- 修改 `drivers/iio/humidity/Makefile` 添加：
++  ```
++  obj-$(CONFIG_SHT31) += sht31.o
++  ```
++- 验证：编译不报错
++
++##### 任务 2.4：修改设备树 DTS
++
++**优先级**：P0
++**产出**：DTS diff 补丁
++
++**硬件实测修正（2026-07-22）**：
++
++| 问题 | 原计划 | 修正后 |
++|------|--------|--------|
++| compatible 写错 | `invensense,mpu6050` | `invensense,mpu6500`（WHO_AM_I=0x70 对应 MPU6500） |
++| INT 未接线 | 写了占位中断 GPIO0_C0 | 不写 interrupts，只写最小节点 |
++| 40-pins.dtsi 带副作用 | `#include "rk3588s-atk-40-pins.dtsi"` | 不 include 整个文件（会顺带启用 SPI0 等），直接在板级 DTS 中只启用 I2C3/UART5 |
++| 内核 IIO 与用户态冲突 | 未提及 | 选择方案A（内核 IIO），后续改 CarTerminal 读 IIO，不再直接操作 /dev/i2c-3 |
++
++**2.4.1**：修改 `rk3588s-atk-quarkpi-ca2.dts`，在文件末尾添加 I2C3/UART5 启用 + 传感器子节点：
++
++```dts
++/* 不 include rk3588s-atk-40-pins.dtsi（会带 SPI0 等副作用） */
++/* 直接在板级 DTS 中只启用所需的 I2C3 和 UART5 */
++
++&i2c3 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2c3m1_xfer>;
++	status = "okay";
++
++	imu@68 {
++		compatible = "invensense,mpu6500";
++		reg = <0x68>;
++		/* INT 尚未接线，暂不声明 interrupts */
++		/* 后续 INT 接到 GPIO3_C1 后添加：
++		 * interrupt-parent = <&gpio3>;
++		 * interrupts = <RK_PC1 IRQ_TYPE_EDGE_RISING>;
++		 */
++	};
++
++	sht30@44 {
++		compatible = "sensirion,sht3x";
++		reg = <0x44>;
++	};
++};
++
++&uart5 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart5m1_xfer>;
++	status = "okay";
++};
++```
++
++**验证记录**：
++- `invensense,mpu6500` 在 `drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c:200` 已确认
++- `sensirion,sht3x` 在 `drivers/iio/humidity/sht31.c:242` 已确认
++- `rk3588s-atk-40-pins.dtsi` 未被任何 dtsi include（grep 确认）
++- sht31.c 是 IIO 驱动（devm_iio_device_alloc + devm_iio_device_register），不是 hwmon
++
++**2.4.2**：AP3216C 子节点（外接，第5-6周自研驱动时添加）
++
++QuarkPi-CA2 无板载 AP3216C，需外接到 I2C3（与 MPU6500/SHT30 共用总线，地址不冲突）：
++
++| 设备 | I2C3 地址 | 接线 |
++|------|---------|------|
++| MPU6500 | 0x68 | SDA→Pin3, SCL→Pin5 |
++| SHT30 | 0x44 | SDA→Pin3, SCL→Pin5 |
++| AP3216C | 0x1E | SDA→Pin3, SCL→Pin5 |
++
++```dts
++ap3216c@1e {
++    compatible = "liteon,ap3216c";  /* 添加前确认 SDK 驱动接受此 compatible */
++    reg = <0x1e>;
++};
++```
++
++**2.4.3**：MPU6500 中断引脚（待 INT 实际接到 GPIO3_C1 后添加）
++
++推荐接线：MPU INT → J11 Pin 7 → GPIO3_C1
++
++接好后添加：
++```dts
++/* imu@68 节点内添加 */
++interrupt-parent = <&gpio3>;
++interrupts = <RK_PC1 IRQ_TYPE_EDGE_RISING>;
++
++/* pinctrl 添加 */
++&pinctrl {
++    mpu6500 {
++        mpu6500_int_pin: mpu6500-int-pin {
++            rockchip,pins = <3 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
++        };
++    };
++};
++```
++
++**2.4.4**：UART5 / GPS 接线确认
++
++| 信号 | J11 引脚 | RK3588S GPIO | 方向 |
++|------|---------|-------------|------|
++| UART5_TX_M1 | Pin 8 | GPIO3_C4 | 板→GPS |
++| UART5_RX_M1 | Pin 10 | GPIO3_C5 | GPS→板 |
++
++GPS 交叉连接：GPS_TXD→Pin10(RX), GPS_RXD→Pin8(TX), GND→GND
++
++`/dev/ttyS5` 不存在的原因：DTS 中 `serial@feb80000` 的 status 为 `disabled`。
++启用 `&uart5 { status = "okay"; }` 后验证：
++```bash
++tr -d '\0' </proc/device-tree/serial@feb80000/status  # 预期: okay
++ls -l /dev/ttyS5                                        # 预期: 存在
++dmesg | grep -iE 'feb80000|ttyS5'                      # 预期: ttyS5 is a 16550A
++```
++
++**架构选择**：方案A - 内核 IIO 驱动
++
++启用 `CONFIG_INV_MPU6050_IIO=y` + DTS 添加 `imu@68` 后，内核 inv_mpu6050 驱动会绑定 0x68 地址。
++此时 `i2cdetect` 显示 `UU`，CarTerminal 的用户态 `/dev/i2c-3` 直接访问将得到 `EBUSY`。
++后续第4周需将 CarTerminal 从 `/dev/i2c-3` 改为读取 `/sys/bus/iio/devices/`。
++
++##### 任务 2.5：重新编译内核（修改后）
++
++**优先级**：P1
++**依赖**：任务 2.0（原始编译验证通过）+ 2.2 + 2.3 + 2.4 完成
++**产出**：`arch/arm64/boot/Image` + `.dtb`（带传感器驱动的新内核）
++
++**编译方式修正**：优先使用 `./build.sh kernel`，不用通用 `make`。
++厂商 SDK 通过 build.sh 注入板级配置、工具链和 DTB 目标。
++
++```bash
++cd ~/quarkpi-sdk-clean
++
++# 用 SDK 脚本编译（自动处理 defconfig + DTS + 工具链）
++./build.sh kernel
++```
++
++验证：
++- 生成 `arch/arm64/boot/Image` 和 `rk3588s-atk-quarkpi-ca2.dtb`
++- `ls drivers/iio/imu/inv_mpu6050/*.o` 确认 MPU6500 编译进内核
++- `ls drivers/iio/humidity/sht31.o` 确认 sht31 编译成功
++- `ls -la kernel/boot.img` 确认 boot.img 更新
++- 对比 2.0 的原始镜像，确认差异只有你改的部分
++
++##### 任务 2.6：U-Boot 启动链研究（仅研究，不重编译）
++
++**优先级**：P2（降级：本次只改内核/DTS/驱动，不需要重编译 U-Boot）
++**产出**：U-Boot 启动链文档
++
++本次只修改内核、驱动和 DTS，原则上不需要重新编译 U-Boot。
++U-Boot 保持 2.0 原始编译的版本即可。
++
++如需研究启动链（SD 卡 vs eMMC 启动优先级）：
++
++```bash
++cd ~/quarkpi-sdk-clean
++ls device/rockchip/
++cat device/rockchip/common/Makefile | head -50
++find . -name "*quarkpi*" -o -name "*ca2*" 2>/dev/null | grep -i uboot
++ls device/rockchip/rk3588/
++cat device/rockchip/rk3588/rk3588_make.sh 2>/dev/null
++```
++
++预期：SDK 应该有板级编译脚本，通过 `./build.sh uboot` 触发，会自动选择对应 defconfig。
++
++##### 任务 2.7：U-Boot 重编译（本次跳过）
++
++**优先级**：P3（降级为可选）
++**状态**：本次跳过，不重编译 U-Boot
++
++本次 BSP 修改只涉及内核 defconfig + DTS + sht31.c backport，不影响 U-Boot。
++U-Boot 保持 2.0 原始编译的版本即可，I2C3/UART5/MPU6500/SHT30 的启用不需要 U-Boot 参与。
++
++仅在以下场景需要重编译 U-Boot：
++- 需要修改启动顺序（SD 卡 vs eMMC 优先级）
++- 需要修改 bootargs
++- 需要修改 U-Boot 环境变量
++
++#### 第3周任务：Buildroot + 部署
++
++##### 任务 3.1：配置 Buildroot
++
++**优先级**：P0（可与第2周任务并行）
++**产出**：更新后的 `rockchip_atk_quarkpi_ca2_defconfig`
++
++```bash
++cd ~/quarkpi-sdk-clean/buildroot
++make rockchip_atk_quarkpi_ca2_defconfig
++make menuconfig
++```
++
++需要启用的包：
++
++```
++# 1. Qt5（项目 GUI 依赖）
++# Target packages → Graphic libraries and applications → qt5
++BR2_PACKAGE_QT5=y
++BR2_PACKAGE_QT5BASE=y
++BR2_PACKAGE_QT5BASE_GUI=y
++BR2_PACKAGE_QT5BASE_WIDGETS=y
++BR2_PACKAGE_QT5BASE_NETWORK=y
++BR2_PACKAGE_QT5BASE_SQL=y
++
++# 2. ffmpeg（MP4 录像依赖）
++# Target packages → Multimedia → ffmpeg
++BR2_PACKAGE_FFMPEG=y
++
++# 3. alsa-lib（KWS/ASR 音频依赖）
++# Target packages → Audio and video applications → alsa-lib
++BR2_PACKAGE_ALSA_LIB=y
++BR2_PACKAGE_ALSA_UTILS=y
++
++# 4. librga（图像硬件加速依赖）
++# Target packages → Libraries → Hardware handling → librga
++BR2_PACKAGE_LIBRGA=y
++
++# 5. libzmq（TTS 通信依赖，待确认）
++BR2_PACKAGE_ZEROMQ=y
++```
++
++##### 任务 3.2：编译 rootfs
++
++**优先级**：P0
++**依赖**：任务 3.1 完成
++**产出**：`rootfs.ext4`
++
++```bash
++cd ~/quarkpi-sdk-clean/buildroot
++make -j8
++```
++
++##### 任务 3.3：打包镜像
++
++**优先级**：P0
++**依赖**：任务 2.5 + 2.7 + 3.2 完成
++**产出**：`output/firmware/` 下的完整镜像文件
++
++```bash
++cd ~/quarkpi-sdk-clean
++./build.sh firmware   # 或 SDK 提供的打包脚本
++```
++
++预期产出：
++- `idbloader.img`（SPL）
++- `uboot.img`（U-Boot）
++- `boot.img`（Kernel + DTB + initramfs）
++- `rootfs.img`（根文件系统）
++
++##### 任务 3.4：烧录 SD 卡
++
++**优先级**：P0
++**依赖**：任务 3.3 完成
++**产出**：可启动的 SD 卡
++**防变砖**：eMMC 保持出厂镜像完全不动（保险）
++
++```bash
++cd ~/quarkpi-sdk-clean
++sudo ./rkflash.sh   # 或 SDK 提供的烧录脚本
++# eMMC 保持出厂镜像不动
++```
++
++启动逻辑：插卡 → SD 卡启动；拔卡 → eMMC 启动
++变砖风险：零（SD 卡随便刷，eMMC 永远是保险）
++
++##### 任务 3.5：板端驱动验证
++
++**优先级**：P1
++**依赖**：任务 3.4 完成
++**产出**：板端验证日志
++
++SD 卡启动后：
++
++```bash
++# 验证 MPU6500 IIO
++ls /sys/bus/iio/devices/
++cat /sys/bus/iio/devices/iio:deviceX/in_accel_x_raw
++
++# 验证 SHT30
++cat /sys/bus/iio/devices/iio:deviceY/in_humidityrelative_raw
++
++# 验证 IMX415
++v4l2-ctl --list-devices
++
++# 验证 I2C/UART/GPIO
++ls /dev/i2c-* /dev/ttyS* /dev/gpiochip*
++
++# 验证 RKNN/RGA/DRM
++ls /dev/rknpu* /dev/rga* /dev/dri/card*
++
++# 编译和加载自定义 .ko
++insmod hello.ko
++dmesg | tail
++```
++
++##### 任务 3.6：基线回归测试
++
++**优先级**：P1
++**依赖**：任务 3.5 完成
++**产出**：回归测试报告
++
++```bash
++# 部署 CarTerminal 到 SD 卡 rootfs
++# 在 Ubuntu 上交叉编译
++cd ~/RK3588S_CarTerminal
++git checkout factory-image-software-baseline
++/path/to/qmake-aarch64 CarTerminal.pro
++make -j8
++
++# 拷贝到 SD 卡 rootfs
++sudo cp CarTerminal /mnt/sd_rootfs/opt/carterminal/
++sudo cp -r config/ /mnt/sd_rootfs/opt/carterminal/
++
++# 板端运行
++cd /opt/carterminal
++./CarTerminal
++```
++
++验证项（来自 baseline_verify.sh）：
++- IMX415 采集 + RGA + RKNN + MPP + RTSP
++- MP4 录像
++- GPS（ATGM336H, UART5）
++- MPU6500 姿态
++- ASR + KWS + TTS（sherpa-onnx）
++- 百度地图 + Qt5 GUI
++- 启动退出 3 次无崩溃
++
++#### 任务依赖关系
++
++```
++2.0 原始SDK编译验证（最先做）
++         │
++         │  2.1 PCB确认（可与2.0并行）
++         │      │
++         │      ↓
++         ├─→ 2.4 DTS修改 ──→ 2.5 重新编译内核
++         │                       │
++         │  2.3 Backport sht31 ──┘
++         │                       │
++         │  2.2 defconfig ────────┤
++         │                       ↓
++         │  2.6 U-Boot确认 ──→ 2.7 编译U-Boot
++         │                       │
++         ↓                       ↓
++3.1 Buildroot配置 ──→ 3.2 编译rootfs ──→ 3.3 打包 → 3.4 烧录
++                                                            │
++                                                            ↓
++                                               3.5 驱动验证 → 3.6 回归测试
++```
++
++#### 可并行任务
++
++- **任务 2.0 原始 SDK 编译验证** 与 **任务 2.1 PCB 确认** 可并行（2.0 在 Ubuntu 跑，2.1 查原理图）
++- **任务 2.3 Backport sht31** 与 **任务 2.1 PCB 确认** 可并行
++- **任务 3.1 Buildroot 配置** 与 **任务 2.5 编译内核** 可并行
++- **任务 2.6 U-Boot 确认** 与 **任务 2.4 DTS 修改** 可并行
+ 
+ #### 内核配置必做项
+ 
+-`make ARCH=arm64 menuconfig` 必须启用：
++`make ARCH=arm64 menuconfig` 必须启用（基于 SDK 5.10.209 实际核实）：
+ 
+ ```
+-CONFIG_IIO=y / CONFIG_IIO_BUFFER=y / CONFIG_IIO_TRIGGERED_BUFFER=y
+-CONFIG_INV_MPU6050_IIO=m        # 第4周 MPU6050
+-CONFIG_REGMAP=y / CONFIG_REGMAP_I2C=y
+-CONFIG_INPUT=y / CONFIG_INPUT_MISC=y
+-CONFIG_MEDIA_SUPPORT=y / CONFIG_MEDIA_CAMERA_SUPPORT=y
++# IIO 子系统（MPU6500/SHT30/AP3216C 依赖）
++CONFIG_IIO=y
++CONFIG_IIO_BUFFER=y
++CONFIG_IIO_TRIGGERED_BUFFER=y
++CONFIG_INV_MPU6050_IIO=y          # 启用 MPU6500（SDK 有完整驱动文件）
++CONFIG_INV_MPU6050_I2C=y
++CONFIG_SHT31=y                    # 启用 SHT30（需先 backport sht31.c）
++
++# regmap（I2C 寄存器访问）
++CONFIG_REGMAP=y
++CONFIG_REGMAP_I2C=y
++
++# Input 子系统（第7周 vehicle-io）
++CONFIG_INPUT=y
++CONFIG_INPUT_MISC=y
++CONFIG_KEYBOARD_GPIO=y            # SDK 已启用
++
++# Media/V4L2（IMX415 已就绪，SDK 全部 =y）
++CONFIG_MEDIA_SUPPORT=y
++CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_V4L2_SUBDEV_API=y
+ CONFIG_VIDEO_ROCKCHIP_ISP=y
++CONFIG_VIDEO_ROCKCHIP_CIF=y
++CONFIG_VIDEO_IMX415=y             # SDK 已启用
++
++# GPIO（SDK 仅 gki.config =m，需在主 defconfig 确认 =y）
+ CONFIG_GPIOLIB=y
+-CONFIG_RPMSG=y / CONFIG_RPMSG_CHAR=y   # AMP机动项需要；不执行AMP时可不启用
+-CONFIG_DEBUG_INFO=y / CONFIG_KMEMLEAK=y       # 仅 debug 配置
+-CONFIG_FTRACE=y / CONFIG_FUNCTION_TRACER=y    # 仅 debug 配置
+-CONFIG_DEBUG_FS=y / CONFIG_DYNAMIC_DEBUG=y    # 仅 debug 配置
++CONFIG_GPIO_ROCKCHIP=y
++
++# Rockchip 基础（SDK 已全部 =y）
++CONFIG_I2C_RK3X=y
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_DW=y
++CONFIG_ROCKCHIP_RKNPU=y
++CONFIG_VIDEO_ROCKCHIP_RGA=y
++CONFIG_DRM_ROCKCHIP=y
++
++# 调试（仅 debug defconfig）
++CONFIG_DEBUG_INFO=y
++CONFIG_KMEMLEAK=y                 # 仅 debug 配置
++CONFIG_FTRACE=y
++CONFIG_FUNCTION_TRACER=y          # 仅 debug 配置
++CONFIG_DEBUG_FS=y
++CONFIG_DYNAMIC_DEBUG=y            # 仅 debug 配置
++
++# AMP 机动项
++CONFIG_RPMSG=y                    # AMP 机动项需要；不执行 AMP 时可不启用
++CONFIG_RPMSG_CHAR=y
+ ```
+ 
+ > 所有符号必须先用 SDK 内核的 `scripts/config`、`menuconfig` 或 `grep Kconfig` 核实；Rockchip 厂商内核可能使用不同的 Media/CSI 符号，禁止照抄不存在的 CONFIG。
+@@ -183,14 +657,43 @@ CONFIG_DEBUG_FS=y / CONFIG_DYNAMIC_DEBUG=y    # 仅 debug 配置
+ 
+ #### 最低验收（第3周末）
+ 
++**第2周验收（原始 BSP）**：
++- ✅ 原始 SDK 编译通过（内核 + U-Boot + rootfs 全部无错误）
++- ✅ 原始镜像 SD 卡启动到 login prompt
++- ✅ SSH 可登录
++- ✅ 基础设备存在（I2C/UART/GPIO/Video）
++
++**第3周验收（修改后 BSP + 驱动）**：
+ - ✅ 自编译 U-Boot 启动
+ - ✅ 自编译 Kernel 启动
+ - ✅ 自编译 DTB 生效（`cat /proc/device-tree/model` 正确）
+ - ✅ 自编译 RootFS 挂载
+-- ✅ SSH 可登录
+ - ✅ 能编译和加载自定义 .ko
++- ✅ MPU6500 IIO 节点出现（`ls /sys/bus/iio/devices/`）
++- ✅ SHT30 IIO 节点出现（`cat in_humidityrelative_raw`）
++- ✅ IMX415 三路摄像头可用（`v4l2-ctl --list-devices`）
+ - ✅ 基线软件 CarTerminal 能跑（回归对比通过）
+ 
++#### 防变砖机制
++
++```
++eMMC: 保持出厂镜像完全不动（保险）
++SD 卡: 烧录自编译镜像（开发用）
++
++启动逻辑：插卡 → SD 卡启动；拔卡 → eMMC 启动
++变砖风险：零（SD 卡随便刷，eMMC 永远是保险）
++```
++
++#### 风险项与缓解
++
++| 风险 | 概率 | 影响 | 缓解 |
++|------|------|------|------|
++| PCB 原理图找不到 MPU6500 中断引脚 | 中 | MPU6500 无中断，退化为轮询 | 用用户态 I2C 方式跑，或 GPIO 轮询 |
++| sht31.c backport 编译失败 | 低 | SHT30 不能用 | 换 si7020.c（SDK 已有） |
++| U-Boot defconfig 找不到 | 中 | 无法编译 U-Boot | 用 SDK 的 build.sh 脚本自动处理 |
++| Buildroot Qt5 编译失败 | 中 | 无 GUI | 查 Buildroot Qt5 依赖链 |
++| SD 卡启动失败 | 低 | 无法验证 | eMMC 出厂镜像可回退 |
++
+ #### 风险止损
+ 
+ 如果第3周末 Buildroot rootfs 仍有包依赖问题：
+@@ -199,6 +702,21 @@ CONFIG_DEBUG_FS=y / CONFIG_DYNAMIC_DEBUG=y    # 仅 debug 配置
+ 3. 如需复用出厂库，必须复制完整依赖并验证 ABI/许可证，不能跨独立根文件系统建立无效软链接
+ 4. 第4周可以开始模块开发，但 CarTerminal 回归状态必须继续标记为 blocked，不能伪装通过
+ 
++#### 预计产出
++
++| 产出物 | 位置 | 用途 |
++|--------|------|------|
++| 原始镜像（任务 2.0） | SD 卡 | 基准对比基础 |
++| 内核 Image + dtb（修改后） | `kernel/arch/arm64/boot/` | SD 卡 boot 分区 |
++| uboot.img + idbloader.img | `u-boot/` | SD 卡 bootloader |
++| rootfs.ext4 | `buildroot/output/images/` | SD 卡 root 分区 |
++| 完整镜像 | `output/firmware/` | SD 卡整体烧录 |
++| defconfig.orig 备份 | `arch/arm64/configs/` | 原始配置回退 |
++| DTS diff 补丁 | 项目 docs/ | 记录设备树改动 |
++| defconfig diff | 项目 docs/ | 记录内核配置改动 |
++| 板端验证日志 | 项目 docs/ | 记录验证结果 |
++| 回归测试报告 | 项目 docs/ | 确认基线软件可用 |
++
+ #### 本周文档输出
+ 
+ - `docs/BSP_BUILD_AND_BOOT.md`：一键编译/部署流程
+@@ -206,7 +724,7 @@ CONFIG_DEBUG_FS=y / CONFIG_DYNAMIC_DEBUG=y    # 仅 debug 配置
+ 
+ ---
+ 
+-### 第4周：MPU6050 IIO 适配 + IMU 数据源接口（1周）
++### 第4周：MPU6500 IIO 适配 + IMU 数据源接口（1周）
+ 
+ **项目从"用户态"跨入"内核驱动"的第一步，也是首次引入应用抽象。**
+ 
+@@ -215,7 +733,7 @@ CONFIG_DEBUG_FS=y / CONFIG_DYNAMIC_DEBUG=y    # 仅 debug 配置
+ | 序号 | 任务 | 验收 |
+ |------|------|------|
+ | 1 | `CONFIG_INV_MPU6050_IIO=m` 内核配置 | menuconfig 勾选 |
+-| 2 | 先读取并记录真实 WHO_AM_I，确认是 MPU6050/MPU9250 后再选择 compatible | 型号证据与 DTS 一致 |
++| 2 | 先读取并记录真实 WHO_AM_I，确认是 MPU6500/MPU9250 后再选择 compatible | 型号证据与 DTS 一致 |
+ | 3 | 设备树 I²C 子节点 + INT GPIO | 使用经当前内核 binding 核实的 compatible |
+ | 4 | pinctrl + regulator 描述 | dts 编译通过 |
+ | 5 | 驱动绑定 + WHO_AM_I 调试 | driver symlink、IIO name/channel 与真实型号一致 |
+@@ -227,7 +745,7 @@ CONFIG_DEBUG_FS=y / CONFIG_DYNAMIC_DEBUG=y    # 仅 debug 配置
+ #### 数据路径（必须画对）
+ 
+ ```
+-MPU6050 → I2C controller driver → inv_mpu6050 I2C client driver
++MPU6500 → I2C controller driver → inv_mpu6050 I2C client driver
+                                   → IIO device + triggered buffer
+                                   → Data Ready IRQ → iio_trigger
+                                   → /dev/iio:deviceX (char device)
+@@ -269,8 +787,8 @@ sysfs 只负责 name、scale、sampling_frequency、scan_elements、buffer/trigg
+ 
+ #### 本周文档输出
+ 
+-- `docs/DEVICE_TREE_DESIGN.md`：I2C3 + MPU6050 子节点
+-- `docs/MPU6050_IIO_PORTING.md`：适配全过程 + A/B 数据
++- `docs/DEVICE_TREE_DESIGN.md`：I2C3 + MPU6500 子节点
++- `docs/MPU6500_IIO_PORTING.md`：适配全过程 + A/B 数据
+ 
+ ---
+ 
+@@ -537,9 +1055,9 @@ platform_driver（vehicle-io）
+ 
+ | 指标 | 用户态 I2C | IIO 内核驱动 | 实测差异与原因 |
+ |------|-----------|-------------|---------------|
+-| MPU6050 采样率 | | | |
+-| MPU6050 CPU 占用 | | | |
+-| MPU6050 P99 抖动 | | | |
++| MPU6500 采样率 | | | |
++| MPU6500 CPU 占用 | | | |
++| MPU6500 P99 抖动 | | | |
+ | AP3216C 响应延迟 | | | |
+ 
+ 不预设 IIO 一定提高吞吐；报告同时评价标准 ABI、IRQ/Buffer、时间戳、PM、CPU 占用和抖动。
+@@ -553,7 +1071,7 @@ platform_driver（vehicle-io）
+ 5. 记录消息序号、超时、平均/P99 往返延迟；
+ 6. 连续 10 万条消息无错序。
+ 
+-本轮不承诺 MPU6050 迁移或 Linux 虚拟 IIO；它们作为 12 周之后的扩展。若 AMP 未完成，简历和最终架构不得出现已完成表述。
++本轮不承诺 MPU6500 迁移或 Linux 虚拟 IIO；它们作为 12 周之后的扩展。若 AMP 未完成，简历和最终架构不得出现已完成表述。
+ 
+ ### 第12周：8小时测试、文档、简历与面试材料
+ 
+@@ -573,7 +1091,7 @@ docs/
+ ├── BSP_BUILD_AND_BOOT.md          ← 第3周写
+ ├── BOARD_BRINGUP.md               ← 第3周写
+ ├── DEVICE_TREE_DESIGN.md          ← 第4周写
+-├── MPU6050_IIO_PORTING.md         ← 第4周写
++├── MPU6500_IIO_PORTING.md         ← 第4周写
+ ├── AP3216C_DRIVER_DESIGN.md       ← 第5-6周写
+ ├── VEHICLE_IO_PLATFORM_DRIVER.md  ← 第7周写
+ ├── CAMERA_SENSOR_PORTING.md       ← 第8-9周写
+@@ -604,7 +1122,7 @@ docs/
+ 
+ | 子系统 | 涉及阶段 | 具体驱动 | 自研/适配 |
+ |--------|---------|---------|----------|
+-| IIO | 第4周 | MPU6050（`inv_mpu6050` 主线） | 适配 + trigger/buffer |
++| IIO | 第4周 | MPU6500（`inv_mpu6050` 主线） | 适配 + trigger/buffer |
+ | IIO | 第5-6周 | AP3216C（`ap3216c.c`） | **自研** |
+ | I2C | 第4-6周 | `i2c_driver` + `of_match_table` | 自研 + 适配 |
+ | Input | 第7周 | Vehicle-IO `input_device` | **自研** |
+@@ -620,7 +1138,7 @@ docs/
+ ### 设备树修改
+ 
+ 板级 DTS 必须新增的子节点：
+-- MPU6050（`&i2c3` 下，compatible="invensense,mpu6050"）
++- MPU6500（`&i2c3` 下，compatible="invensense,mpu6500"）
+ - AP3216C（挂载总线由原理图/引脚占用审计决定，使用合法厂商前缀 compatible）
+ - Vehicle-IO（使用合法厂商前缀 compatible）
+ - 第二种 Sensor（I²C 总线和 DPHY endpoint 必须依据 QuarkPi-CA2 原理图确认，不预先写死 i2c4/dphy0）
+@@ -648,7 +1166,7 @@ docs/
+ 
+ ## 六、裁剪顺序（时间不足时按此删，越靠前越先删）
+ 
+-1. AMP 传感器迁移（MPU6050 → RTOS）
++1. AMP 传感器迁移（MPU6500 → RTOS）
+ 2. AMP 异常恢复
+ 3. 双路 RKNN
+ 4. 双路 RTSP（**保留单路 RTSP**）
+@@ -661,7 +1179,7 @@ docs/
+ 
+ - ✅ 软件基线（第0阶段）— 2026-07-21 封板
+ - ❌ 自编译 SDK 镜像
+-- ❌ MPU6050 IIO 闭环
++- ❌ MPU6500 IIO 闭环
+ - ❌ AP3216C 自研驱动
+ - ❌ platform/Input 驱动
+ - ❌ 第二种摄像头至少单路真实采集
+@@ -681,7 +1199,8 @@ docs/
+ | FFmpeg 录像 | 已完成，停止扩展 |
+ | ASR/TTS | 保留现状，停止新增功能 |
+ | RKLLM | 不再为旧出厂 NPU 驱动耗时 |
+-| DHT11 | 使用主线 IIO 驱动，只做 DTS 使能 |
++| DHT11 | **已放弃**：单总线时序脆弱，用户态抖动大 |
++| SHT30 | 标准的 I2C 接口 + 主线 IIO 驱动 sht31.c，精度 ±0.2℃ / ±2%RH，替换 DHT11 |
+ | 按键 | Input/gpio-keys 或 vehicle-io |
+ | 蜂鸣器 | libgpiod/PWM/LED 框架，不写私有字符设备 |
+ | PHY | 只有真实协商、时序或丢包故障才修改 |
+@@ -696,7 +1215,7 @@ docs/
+ ```
+ RK3588S自编译BSP
+ ├── U-Boot / Kernel / DTB / Buildroot
+-├── MPU6050
++├── MPU6500
+ │   └── I2C + 主线驱动适配 + IIO Trigger/Buffer
+ ├── AP3216C
+ │   └── 自研 I2C + Regmap + IIO + IRQ/Event
+@@ -724,7 +1243,7 @@ RK3588S自编译BSP
+ >
+ > **嵌入式 BSP 与内核驱动**
+ > - 自编译 U-Boot + Kernel + DTB + Buildroot rootfs，从 SD 卡启动，建立一键编译部署流程
+-> - MPU6050 IIO 驱动适配：主线 `inv_mpu6050` + IIO trigger/buffer + Data Ready IRQ + suspend/resume
++> - MPU6500 IIO 驱动适配：主线 `inv_mpu6050` + IIO trigger/buffer + Data Ready IRQ + suspend/resume
+ > - **自研 AP3216C IIO 驱动**：`i2c_driver` + `of_match_table` + regmap + 三通道（ALS/IR/PS）+ Runtime PM
+ > - **Vehicle-IO platform 驱动**：`platform_driver` + `devm_gpiod_get` + `threaded_irq` + Input 子系统 + 软件消抖
+ > - **第二种摄像头 Sensor V4L2 Subdev 移植**：I²C 驱动 + Media Graph + DPHY/CSI2/ISP 完整链路
+@@ -753,7 +1272,7 @@ RK3588S自编译BSP
+ |------|------|------|------|---------|---------|
+ | P0前置 | 第1周 | 出厂镜像软件基线封板 | ✅ 完成 | 2026-07-21 | [scripts/baseline_verify.sh](../scripts/baseline_verify.sh) / [docs/baseline/features.md](./baseline/features.md) / [docs/baseline/devices.txt](./baseline/devices.txt) |
+ | P0 | 第2-3周 | 自编译 BSP（U-Boot/Kernel/DTB/RootFS） | ☐ 未开始 | - | - |
+-| P1 | 第4周 | MPU6050 IIO 适配 + IImuSampleSource | ☐ 未开始 | - | - |
++| P1 | 第4周 | MPU6500 IIO 适配 + IImuSampleSource | ☐ 未开始 | - | - |
+ | P1 | 第5-6周 | 自研 AP3216C IIO 驱动（基础版 + 2 项增强） | ☐ 未开始 | - | - |
+ | P1 | 第7周 | Vehicle-IO platform + Input 子系统驱动 | ☐ 未开始 | - | - |
+ | P2 | 第8-9周 | 第二种 Sensor V4L2 + Media Graph | ☐ 未开始 | - | - |
+@@ -768,7 +1287,7 @@ RK3588S自编译BSP
+ |--------|------|---------|---------|
+ | 应用层缓存 IDR | ✅ 完成 | 2026-07-20 | [MODULE_STATUS.md §1bis](./MODULE_STATUS.md) |
+ | RKNN 检测联动 | ✅ 完成 | 2026-07-20 | [MODULE_STATUS.md](./MODULE_STATUS.md) |
+-| MPU6050 用户态驱动（基线，待升级为 IIO） | ✅ 完成 | 2026-07-21 | [MODULE_STATUS.md](./MODULE_STATUS.md) |
++| MPU6500 用户态驱动（基线，待升级为 IIO） | ✅ 完成 | 2026-07-21 | [MODULE_STATUS.md](./MODULE_STATUS.md) |
+ | 视频录像 FFmpeg | ✅ 完成 | 2026-07-21 | [Mp4Recorder](../media/mp4_recorder.h) |
+ | AI 语音 KWS+语义 | ✅ 完成 | 2026-07-21 | [VoiceManager](../voice/VoiceManager.cpp) |
+ 
+@@ -783,9 +1302,45 @@ RK3588S自编译BSP
+ 5. **文档每周同步写草稿**：不堆积到第12周
+ 6. **每个驱动阶段加风险止损条件**：超时立即降级或跳过
+ 7. **软件先做基线，驱动应用交替集成**：避免"纯驱动两个月最后才发现应用挂了"
+-8. **不重复造轮子**：MPU6050 用主线驱动，不写 U-Boot 完整移植
++8. **不重复造轮子**：MPU6500 用主线驱动，不写 U-Boot 完整移植
+ 9. **简历叙事一致**：按第九节模板组织简历内容
+ 
+ ---
+ 
+ Last updated: 2026-07-21（第0阶段「出厂镜像软件基线封板」✅ 完成。baseline_verify.sh 11 项验证：5 PASS / 1 FAIL（GPS 室内无信号，环境问题）/ 5 MANUAL。核心成果：IMX415 采集 + RGA + RKNN + MPP + RTSP + 启动退出 3 次无崩溃全部通过。同日完成 MP4 录像链路打通 + 摄像头预览卡顿修复 + 退出崩溃修复。下一步：第2-3周 自编译 BSP。）
++
++<!-- WEEK7_VEHICLE_IO_FINAL_FREEZE_V1_BEGIN -->
++## 第7周最终冻结记录：Vehicle-IO驱动与应用集成
++
++状态：**已完成并通过最终验收**
++
++已完成内容：
++
++- 自研`quarkpi-vehicle-io`内核input驱动；
++- REVERSE、ACC和BUTTON三路低电平有效GPIO输入；
++- DTS、binding、Kconfig、Makefile和defconfig集成；
++- Qt应用通过设备名称自动扫描`/dev/input/eventX`；
++- REVERSE有效时打开Monitor；
++- REVERSE释放后不自动关闭Monitor或返回主页面；
++- ACC状态变化日志；
++- BUTTON触发约200 ms有源蜂鸣器脉冲；
++- REVERSE、ACC和BUTTON IRQ增量均验证为2；
++- 正式程序持久化至`/usr/bin/CarTerminal`；
++- Buildroot软件包正式二进制和配置同步；
++- 冷启动后CarTerminal自动运行并连接Vehicle-IO；
++- GPIO4_A3静音状态为输出高电平；
++- 蜂鸣器SIG增加10 kΩ至3.3 V上拉，消除上电误鸣；
++- 冷启动后的BUTTON、ACC和REVERSE端到端回归通过；
++- Vehicle-IO和蜂鸣器专项错误检查为空；
++- 设计、接线、移植、验证记录及源码证据完成冻结。
++
++最终CarTerminal二进制SHA256：
++
++    e013f586f9e5a36fd18d1d5cb25d6003ba2231cead788ea47f030fcf17eb2539
++
++归档位置：
++
++    docs/vehicle-io-driver/
++
++说明：本结论仅覆盖第7周Vehicle-IO范围，不替代其他模块的独立验收。
++<!-- WEEK7_VEHICLE_IO_FINAL_FREEZE_V1_END -->
+
+===== KERNEL GIT STATUS =====
+ M Documentation/devicetree/bindings/vendor-prefixes.yaml
+ M arch/arm64/boot/dts/rockchip/rk3588s-atk-quarkpi-ca2.dts
+ M arch/arm64/configs/rockchip_linux_defconfig
+ M drivers/input/misc/Kconfig
+ M drivers/input/misc/Makefile
+?? Documentation/devicetree/bindings/input/alientek,quarkpi-vehicle-io.yaml
+?? drivers/input/misc/quarkpi-vehicle-io.c

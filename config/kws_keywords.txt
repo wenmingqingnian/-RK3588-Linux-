@@ -1,0 +1,27 @@
+# KWS keywords file (UTF-8, no BOM).
+#
+# Format: "<token sequence> @<display name>" per line
+#   - tokens are space-separated ppinyin (带声调数字) matching tokens.txt
+#   - "@<display name>" is the human-readable form returned by KwsEngine::
+#     getResult() (e.g. "你好小问") — emitted via VoiceManager::
+#     keywordDetected signal.
+#   - Empty lines and lines starting with '#' are ignored.
+#
+# Token reference (sherpa-onnx wenetspeech ppinyin):
+#   tone marks: 1=阴平 2=阳平 3=上声 4=去声 5=轻声
+#
+# To enable a keyword, uncomment the corresponding line. Multiple keywords
+# are OR-matched: any one firing triggers the ASR_WINDOW state.
+#
+# Tuning hint: if a wake word fires too often (false alarms), raise
+# kws_keywords_threshold in kws_settings.conf (0.25 -> 0.30 -> 0.40).
+# If it fails to fire, raise kws_keywords_score (1.5 -> 2.0 -> 2.5).
+
+# 你好小问 (default wake word)
+ni3 hao3 xiao3 wen4 @你好小问
+
+# 你好小智 (alternative wake word)
+# ni3 hao3 xiao3 zhi4 @你好小智
+
+# 嗨小问 (shorter wake word, faster but more false alarms)
+# hai1 xiao3 wen4 @嗨小问

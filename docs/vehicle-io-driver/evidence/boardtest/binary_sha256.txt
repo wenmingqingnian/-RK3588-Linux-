@@ -1,0 +1,2 @@
+3bc39846a7b10071347d313b6e2df611769c5f7100400df6ba6c2b827ae59d89  <HOME>/week7_vehicleio_boardtest_20260727_175458/CarTerminal-board-before
+e013f586f9e5a36fd18d1d5cb25d6003ba2231cead788ea47f030fcf17eb2539  <HOME>/RK3588S_CarTerminal/build-week7-vehicleio-aarch64/CarTerminal

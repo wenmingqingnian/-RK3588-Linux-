@@ -1,0 +1,588 @@
+diff --git a/CarTerminal.pro b/CarTerminal.pro
+index 399bc25..e8e02d9 100644
+--- a/CarTerminal.pro
++++ b/CarTerminal.pro
+@@ -38,15 +38,19 @@ INCLUDEPATH += $$COMMON_DIR
+ DEVICE_DIR = $$PWD/device
+ SOURCES += $$DEVICE_DIR/vehicledeviceconfig.cpp \
+            $$DEVICE_DIR/keyinputdevice.cpp \
++           $$DEVICE_DIR/vehicleioinput.cpp \
+            $$DEVICE_DIR/dht11device.cpp \
+            $$DEVICE_DIR/dht11worker.cpp \
+            $$DEVICE_DIR/dht11.cpp \
+            $$DEVICE_DIR/ap3216device.cpp \
++           $$DEVICE_DIR/ap3216_iiobackend.cpp \
++           $$DEVICE_DIR/ap3216_useri2cbackend.cpp \
+            $$DEVICE_DIR/ap3216worker.cpp \
+            $$DEVICE_DIR/ap3216.cpp \
+            $$DEVICE_DIR/buzzerdevice.cpp \
+            $$DEVICE_DIR/mpu6050device.cpp \
+            $$DEVICE_DIR/mpu6050worker.cpp \
++           $$DEVICE_DIR/mpu6050_iiobuffersource.cpp \
+            $$DEVICE_DIR/mpu6050.cpp \
+            $$DEVICE_DIR/gpsdevice.cpp \
+            $$DEVICE_DIR/gpssimulator.cpp \
+@@ -55,15 +59,20 @@ SOURCES += $$DEVICE_DIR/vehicledeviceconfig.cpp \
+            $$DEVICE_DIR/smbus.c
+ HEADERS += $$DEVICE_DIR/vehicledeviceconfig.h \
+            $$DEVICE_DIR/keyinputdevice.h \
++           $$DEVICE_DIR/vehicleioinput.h \
+            $$DEVICE_DIR/dht11device.h \
+            $$DEVICE_DIR/dht11worker.h \
+            $$DEVICE_DIR/dht11.h \
+            $$DEVICE_DIR/ap3216device.h \
++           $$DEVICE_DIR/ap3216_iiobackend.h \
++           $$DEVICE_DIR/ap3216_useri2cbackend.h \
+            $$DEVICE_DIR/ap3216worker.h \
+            $$DEVICE_DIR/ap3216.h \
+            $$DEVICE_DIR/buzzerdevice.h \
+            $$DEVICE_DIR/mpu6050device.h \
+            $$DEVICE_DIR/mpu6050worker.h \
++           $$DEVICE_DIR/iimusamplesource.h \
++           $$DEVICE_DIR/mpu6050_iiobuffersource.h \
+            $$DEVICE_DIR/mpu6050.h \
+            $$DEVICE_DIR/gpsdevice.h \
+            $$DEVICE_DIR/gpssimulator.h \
+@@ -113,18 +122,51 @@ INCLUDEPATH += $$MEDIA_DIR
+ # RKNN: use board-installed OFFICIAL rknn_api.h (jilu.txt §六.1, §四.1).
+ # Hand-written ABI is forbidden. On hosts without rknn_api.h, rknn_detector.cpp
+ # falls back to a disabled stub via #if __has_include(<rknn_api.h>).
+-linux:exists(/usr/local/include/rknn_api.h) {
+-    message("RKNN: using board-installed /usr/local/include/rknn_api.h")
+-    INCLUDEPATH += /usr/local/include
++# RKNN: prefer the official header from the active Qt/Buildroot sysroot.
++# Native-board include paths remain available as fallbacks.
++RKNN_SYSROOT = $$[QT_SYSROOT]
++RKNN_INCLUDE_DIR =
++
++!isEmpty(RKNN_SYSROOT) {
++    exists($$RKNN_SYSROOT/usr/include/rknn/rknn_api.h) {
++        RKNN_INCLUDE_DIR = $$RKNN_SYSROOT/usr/include/rknn
++    }
++}
++
++isEmpty(RKNN_SYSROOT):isEmpty(RKNN_INCLUDE_DIR):linux:exists(/usr/include/rknn/rknn_api.h) {
++    RKNN_INCLUDE_DIR = /usr/include/rknn
++}
++
++isEmpty(RKNN_SYSROOT):isEmpty(RKNN_INCLUDE_DIR):linux:exists(/usr/local/include/rknn_api.h) {
++    RKNN_INCLUDE_DIR = /usr/local/include
++}
++
++!isEmpty(RKNN_INCLUDE_DIR) {
++    message("RKNN: using official rknn_api.h from $$RKNN_INCLUDE_DIR")
++    INCLUDEPATH += $$RKNN_INCLUDE_DIR
+ } else {
+-    message("RKNN: rknn_api.h not found at /usr/local/include — building disabled stub")
++    message("RKNN: official rknn_api.h not found — building disabled stub")
+ }
+ 
+ # RGA: link against board-installed librga2 (im2d API) when available.
+ # Uses /usr/include/rga/ headers and -lrga (alias for librga.so -> librga2.so).
+-linux:exists(/usr/include/rga/im2d.h) {
+-    message("RGA: using board-installed librga2 (im2d API)")
+-    INCLUDEPATH += /usr/include/rga
++# RGA: prefer headers and libraries from the active Qt/Buildroot sysroot.
++RGA_SYSROOT = $$[QT_SYSROOT]
++RGA_INCLUDE_DIR =
++
++!isEmpty(RGA_SYSROOT) {
++    exists($$RGA_SYSROOT/usr/include/rga/im2d.h) {
++        RGA_INCLUDE_DIR = $$RGA_SYSROOT/usr/include/rga
++    }
++}
++
++isEmpty(RGA_SYSROOT):isEmpty(RGA_INCLUDE_DIR):linux:exists(/usr/include/rga/im2d.h) {
++    RGA_INCLUDE_DIR = /usr/include/rga
++}
++
++!isEmpty(RGA_INCLUDE_DIR) {
++    message("RGA: using im2d API from $$RGA_INCLUDE_DIR")
++    INCLUDEPATH += $$RGA_INCLUDE_DIR
+     LIBS += -lrga
+ } else {
+     message("RGA: im2d.h not found — building CPU-only fallback")
+diff --git a/config/vehicle_devices.conf b/config/vehicle_devices.conf
+index 4dbd38c..eebade2 100644
+--- a/config/vehicle_devices.conf
++++ b/config/vehicle_devices.conf
+@@ -38,18 +38,27 @@ gps_map_update_interval_ms=1000
+ #      或显式填 dht11_sysfs_dir=/sys/bus/iio/devices/iio:deviceN
+ # 通道文件名 (in_temp_input / in_humidityrelative_input) 由代码内部常量固定，
+ # 不再作为配置项。数据单位：毫摄氏度 (25000=25°C)，毫百分 (60000=60%RH)。
+-dht11_enabled=false
++dht11_enabled=true
+ dht11_sysfs_dir=
+ dht11_poll_interval_ms=2000
+ 
+-# AP3216 light/proximity/infrared sensor is disabled by default.
+-# Enable on RK3588S only after verifying the actual sysfs directory.
+-ap3216_enabled=false
++# AP3216C ambient-light/proximity/infrared sensor.
++# Backend selection is startup-only; restart CarTerminal after changing it.
++#   iio      = auto-discover name==ap3216c, read sysfs channels and IIO events
++#   user_i2c = access /dev/i2c-3 directly; first unbind kernel driver 3-001e
++ap3216_enabled=true
++ap3216_backend=iio
+ ap3216_sysfs_dir=
+-ap3216_als_file=als
+-ap3216_ps_file=ps
+-ap3216_ir_file=ir
++ap3216_als_file=in_illuminance_raw
++ap3216_ps_file=in_proximity_raw
++ap3216_ir_file=in_intensity_ir_raw
++ap3216_use_iio_events=true
++ap3216_i2c_device=/dev/i2c-3
++ap3216_i2c_address=0x1e
+ ap3216_poll_interval_ms=500
++# Board-validated hysteresis pair used in the final IRQ/IIO-event regression.
++ap3216_ps_falling_threshold=50
++ap3216_ps_rising_threshold=100
+ 
+ # Active buzzer verified on QuarkPi-CA2 GPIO4_A3.
+ # Hardware: /dev/gpiochip4, line offset 3.
+@@ -66,10 +75,14 @@ buzzer_active_low=true
+ #
+ # Defaults: 50 Hz polling, ±500 dps gyro, ±4g accel, 44 Hz DLPF.
+ # These ranges cover typical vehicle dynamics (±5g braking, ±400°/s yaw).
+-mpu6050_enabled=false
++mpu6050_enabled=true
+ mpu6050_i2c_device=/dev/i2c-3
+ mpu6050_i2c_address=0x68
+ mpu6050_poll_interval_ms=20
+ mpu6050_gyro_range_dps=500
+ mpu6050_accel_range_g=4
+ mpu6050_dlpf_bandwidth_hz=44
++# 数据源后端选择（第4周 IIO 适配）：
++#   user_i2c   = 旧实现，读 /dev/i2c-3 + i2c_smbus_*（需 mpu6050_i2c_device）
++#   iio_buffer = 新实现，读 /dev/iio:deviceX triggered buffer（内核 IIO 驱动已启用时用）
++mpu6050_backend=iio_buffer
+diff --git a/device/vehicledeviceconfig.cpp b/device/vehicledeviceconfig.cpp
+index b7caf17..b522c70 100644
+--- a/device/vehicledeviceconfig.cpp
++++ b/device/vehicledeviceconfig.cpp
+@@ -100,6 +100,25 @@ int parseNonNegativeInt(const std::string &value, const std::string &key)
+     return static_cast<int>(parsed);
+ }
+ 
++int parseI2cAddress(const std::string &value, const std::string &key)
++{
++    int base = 10;
++    std::string digits = value;
++    if (value.size() > 2 && value[0] == '0' &&
++        (value[1] == 'x' || value[1] == 'X')) {
++        base = 16;
++        digits = value.substr(2);
++    }
++
++    char *end = nullptr;
++    const long address = std::strtol(digits.c_str(), &end, base);
++    if (end == digits.c_str() || *end != '\0' ||
++        address < 0x08 || address > 0x77) {
++        throw DeviceConfigError("invalid I2C address for " + key);
++    }
++    return static_cast<int>(address);
++}
++
+ char parseGpsParity(const std::string &value)
+ {
+     if (value.size() != 1) {
+@@ -151,11 +170,17 @@ void rejectUnknownKeys(const std::map<std::string, std::string> &values)
+         "dht11_sysfs_dir",
+         "dht11_poll_interval_ms",
+         "ap3216_enabled",
++        "ap3216_backend",
+         "ap3216_sysfs_dir",
+         "ap3216_als_file",
+         "ap3216_ps_file",
+         "ap3216_ir_file",
++        "ap3216_use_iio_events",
++        "ap3216_i2c_device",
++        "ap3216_i2c_address",
+         "ap3216_poll_interval_ms",
++        "ap3216_ps_falling_threshold",
++        "ap3216_ps_rising_threshold",
+         "buzzer_enabled",
+         "buzzer_gpio_chip",
+         "buzzer_gpio_line",
+@@ -166,7 +191,8 @@ void rejectUnknownKeys(const std::map<std::string, std::string> &values)
+         "mpu6050_poll_interval_ms",
+         "mpu6050_gyro_range_dps",
+         "mpu6050_accel_range_g",
+-        "mpu6050_dlpf_bandwidth_hz"
++        "mpu6050_dlpf_bandwidth_hz",
++        "mpu6050_backend"
+     };
+ 
+     for (std::map<std::string, std::string>::const_iterator it = values.begin();
+@@ -232,11 +258,17 @@ Dht11Config::Dht11Config()
+ 
+ Ap3216Config::Ap3216Config()
+     : enabled(false),
++      backend("iio"),
+       sysfsDir(),
+-      alsFile("als"),
+-      psFile("ps"),
+-      irFile("ir"),
+-      pollIntervalMs(500)
++      alsFile("in_illuminance_raw"),
++      psFile("in_proximity_raw"),
++      irFile("in_intensity_ir_raw"),
++      useIioEvents(true),
++      i2cDevice("/dev/i2c-3"),
++      i2cAddress(0x1e),
++      pollIntervalMs(500),
++      psFallingThreshold(50),
++      psRisingThreshold(100)
+ {
+ }
+ 
+@@ -260,7 +292,8 @@ Mpu6050Config::Mpu6050Config()
+       pollIntervalMs(20),
+       gyroRangeDps(500),
+       accelRangeG(4),
+-      dlpfBandwidthHz(44)
++      dlpfBandwidthHz(44),
++      backend("user_i2c")
+ {
+ }
+ 
+@@ -427,6 +460,15 @@ VehicleDeviceConfig parseDeviceConfigText(const std::string &configText)
+         throw DeviceConfigError("invalid boolean for ap3216_enabled");
+     }
+ 
++    found = values.find("ap3216_backend");
++    if (found != values.end()) {
++        if (found->second != "iio" && found->second != "user_i2c") {
++            throw DeviceConfigError(
++                "ap3216_backend must be iio or user_i2c");
++        }
++        config.ap3216.backend = found->second;
++    }
++
+     found = values.find("ap3216_sysfs_dir");
+     if (found != values.end()) {
+         config.ap3216.sysfsDir = found->second;
+@@ -447,20 +489,65 @@ VehicleDeviceConfig parseDeviceConfigText(const std::string &configText)
+         config.ap3216.irFile = found->second;
+     }
+ 
++    found = values.find("ap3216_use_iio_events");
++    if (found != values.end() &&
++        !parseBoolValue(found->second, &config.ap3216.useIioEvents)) {
++        throw DeviceConfigError("invalid boolean for ap3216_use_iio_events");
++    }
++
++    found = values.find("ap3216_i2c_device");
++    if (found != values.end()) {
++        config.ap3216.i2cDevice = found->second;
++    }
++
++    found = values.find("ap3216_i2c_address");
++    if (found != values.end()) {
++        config.ap3216.i2cAddress =
++            parseI2cAddress(found->second, "ap3216_i2c_address");
++    }
++
+     found = values.find("ap3216_poll_interval_ms");
+     if (found != values.end()) {
+         config.ap3216.pollIntervalMs =
+-            parsePositiveInt(found->second, "ap3216_poll_interval_ms");
++            parseRangedInt(found->second,
++                           "ap3216_poll_interval_ms", 50, 60000);
+     }
+ 
+-    if (config.ap3216.enabled && config.ap3216.sysfsDir.empty()) {
+-        throw DeviceConfigError("ap3216_sysfs_dir is required when ap3216 is enabled");
++    found = values.find("ap3216_ps_falling_threshold");
++    if (found != values.end()) {
++        config.ap3216.psFallingThreshold =
++            parseNonNegativeInt(found->second,
++                                "ap3216_ps_falling_threshold");
+     }
+-    if (config.ap3216.enabled &&
++
++    found = values.find("ap3216_ps_rising_threshold");
++    if (found != values.end()) {
++        config.ap3216.psRisingThreshold =
++            parseNonNegativeInt(found->second,
++                                "ap3216_ps_rising_threshold");
++    }
++
++    if (config.ap3216.psFallingThreshold > 1023 ||
++        config.ap3216.psRisingThreshold > 1023 ||
++        config.ap3216.psFallingThreshold >=
++            config.ap3216.psRisingThreshold) {
++        throw DeviceConfigError(
++            "ap3216 PS thresholds require 0 <= falling < rising <= 1023");
++    }
++
++    if (config.ap3216.backend == "iio" &&
+         (config.ap3216.alsFile.empty() ||
+          config.ap3216.psFile.empty() ||
+          config.ap3216.irFile.empty())) {
+-        throw DeviceConfigError("ap3216 channel file names are required when ap3216 is enabled");
++        throw DeviceConfigError(
++            "ap3216 IIO channel file names must not be empty");
++    }
++
++    if (config.ap3216.enabled &&
++        config.ap3216.backend == "user_i2c" &&
++        config.ap3216.i2cDevice.empty()) {
++        throw DeviceConfigError(
++            "ap3216_i2c_device is required for user_i2c backend");
+     }
+ 
+     found = values.find("buzzer_enabled");
+@@ -557,7 +644,17 @@ VehicleDeviceConfig parseDeviceConfigText(const std::string &configText)
+         config.mpu6050.dlpfBandwidthHz = bw;
+     }
+ 
+-    if (config.mpu6050.enabled && config.mpu6050.i2cDevice.empty()) {
++    found = values.find("mpu6050_backend");
++    if (found != values.end()) {
++        const std::string &backend = found->second;
++        if (backend != "user_i2c" && backend != "iio_buffer") {
++            throw DeviceConfigError("mpu6050_backend must be user_i2c or iio_buffer");
++        }
++        config.mpu6050.backend = backend;
++    }
++
++    if (config.mpu6050.enabled && config.mpu6050.backend == "user_i2c"
++        && config.mpu6050.i2cDevice.empty()) {
+         throw DeviceConfigError("mpu6050_i2c_device is required when mpu6050 is enabled");
+     }
+ 
+diff --git a/device/vehicledeviceconfig.h b/device/vehicledeviceconfig.h
+index 602381a..bbc821c 100644
+--- a/device/vehicledeviceconfig.h
++++ b/device/vehicledeviceconfig.h
+@@ -65,11 +65,26 @@ struct Dht11Config {
+ 
+ struct Ap3216Config {
+     bool enabled;
++
++    // Startup-selected backend: "iio" or "user_i2c". Runtime hot-switching is
++    // intentionally unsupported because both paths target the same 0x1e device.
++    std::string backend;
++
++    // IIO backend. Empty sysfsDir enables discovery by name=="ap3216c".
+     std::string sysfsDir;
+     std::string alsFile;
+     std::string psFile;
+     std::string irFile;
++    bool useIioEvents;
++
++    // User-I2C backend. The kernel ap3216c driver must be unbound first.
++    std::string i2cDevice;
++    int i2cAddress;
++
++    // Shared polling interval and proximity hysteresis thresholds.
+     int pollIntervalMs;
++    int psFallingThreshold;
++    int psRisingThreshold;
+ 
+     Ap3216Config();
+ };
+@@ -100,6 +115,11 @@ struct Mpu6050Config {
+     int gyroRangeDps;              // ±250/±500/±1000/±2000 dps
+     int accelRangeG;               // ±2/±4/±8/±16 g
+     int dlpfBandwidthHz;           // DLPF_CFG: 0=260Hz / 3=44Hz / 6=5Hz
++    // 第4周：数据源后端选择。
++    // "user_i2c"  → Mpu6050Device（读 /dev/i2c-N + i2c_smbus_*，旧实现）
++    // "iio_buffer" → Mpu6050IioBufferSource（读 /dev/iio:deviceX，triggered buffer）
++    // 空串或未识别 → user_i2c（默认）
++    std::string backend;
+ 
+     Mpu6050Config();
+ };
+diff --git a/gui/mainwindow.cpp b/gui/mainwindow.cpp
+index c1f3a8e..027c480 100644
+--- a/gui/mainwindow.cpp
++++ b/gui/mainwindow.cpp
+@@ -3,6 +3,7 @@
+ #include "vehiclecommand.h"
+ #include "logmanager.h"
+ #include "mpu6050.h"
++#include "vehicleioinput.h"
+ 
+ #include <atomic>
+ #include <cstdlib>
+@@ -29,7 +30,6 @@ MainWindow::MainWindow(QWidget *parent)
+     QVBoxLayout *layout = new QVBoxLayout;
+     layout->addWidget(&clock);
+     ui->clock_Widget->setLayout(layout);
+-    this->resize(1024, 600);
+     ui->stackedWidget->installEventFilter(this);
+ 
+     // Load all module configurations (device/camera/asr/rknn/voice/rtsp).
+@@ -107,6 +107,125 @@ MainWindow::MainWindow(QWidget *parent)
+     connect(monitor, &Monitor::dangerStateChanged,
+             this, &MainWindow::onDangerStateChanged);
+ 
++    // Vehicle-IO business integration:
++    // REVERSE press opens Monitor; release deliberately does not close it.
++    // ACC changes are logged.
++    // BUTTON press generates a non-blocking 200 ms buzzer pulse.
++    vehicleIoInput = new VehicleIoInput(this);
++
++    connect(vehicleIoInput,
++            &VehicleIoInput::deviceConnected,
++            this,
++            [](const QString &devicePath) {
++                VLOG_INFO(MODULE,
++                          "vehicle-io connected: %s",
++                          devicePath.toUtf8().constData());
++            });
++
++    connect(vehicleIoInput,
++            &VehicleIoInput::deviceDisconnected,
++            this,
++            [](const QString &devicePath) {
++                VLOG_WARN(MODULE,
++                          "vehicle-io disconnected: %s",
++                          devicePath.toUtf8().constData());
++            });
++
++    connect(vehicleIoInput,
++            &VehicleIoInput::errorOccurred,
++            this,
++            [](const QString &message) {
++                VLOG_WARN(MODULE,
++                          "vehicle-io error: %s",
++                          message.toUtf8().constData());
++            });
++
++    connect(vehicleIoInput,
++            &VehicleIoInput::reverseChanged,
++            this,
++            [this](bool active) {
++                VLOG_INFO(MODULE,
++                          "vehicle-io REVERSE=%s",
++                          active ? "ON" : "OFF");
++
++                if (!active) {
++                    // Expected behavior: releasing REVERSE does not
++                    // automatically leave the Monitor page.
++                    return;
++                }
++
++                if (!monitor) {
++                    VLOG_WARN(MODULE,
++                              "REVERSE press ignored: Monitor unavailable");
++                    return;
++                }
++
++                on_pBtn_Monitor_clicked();
++
++                VLOG_INFO(MODULE,
++                          "REVERSE press opened Monitor page");
++            });
++
++    connect(vehicleIoInput,
++            &VehicleIoInput::accChanged,
++            this,
++            [](bool active) {
++                VLOG_INFO(MODULE,
++                          "vehicle-io ACC=%s",
++                          active ? "ON" : "OFF");
++            });
++
++    QTimer *vehicleButtonBuzzerTimer = new QTimer(this);
++    vehicleButtonBuzzerTimer->setInterval(200);
++    vehicleButtonBuzzerTimer->setSingleShot(true);
++
++    connect(vehicleButtonBuzzerTimer,
++            &QTimer::timeout,
++            this,
++            [this]() {
++                if (setBuzzerAlarm(false)) {
++                    VLOG_INFO(MODULE,
++                              "vehicle-io BUTTON buzzer pulse finished");
++                }
++            });
++
++    connect(vehicleIoInput,
++            &VehicleIoInput::buttonChanged,
++            this,
++            [this, vehicleButtonBuzzerTimer](bool active) {
++                VLOG_INFO(MODULE,
++                          "vehicle-io BUTTON=%s",
++                          active ? "ON" : "OFF");
++
++                if (!active) {
++                    return;
++                }
++
++                if (!setBuzzerAlarm(true)) {
++                    VLOG_WARN(MODULE,
++                              "BUTTON press could not activate buzzer");
++                    return;
++                }
++
++                // start() restarts the single-shot timer if another valid
++                // press arrives before the previous 200 ms pulse expires.
++                vehicleButtonBuzzerTimer->start();
++
++                VLOG_INFO(MODULE,
++                          "vehicle-io BUTTON buzzer pulse started: 200 ms");
++            });
++
++    if (!vehicleIoInput->start()) {
++        // start() enables background auto-scan when the device is not
++        // immediately available, so this is not a fatal startup failure.
++        VLOG_INFO(MODULE,
++                  "vehicle-io not immediately available; auto-scan enabled");
++    }
++
++    VLOG_INFO(MODULE,
++              "vehicle-io business integration initialized");
++
++
+     request = new QNetworkRequest;
+     networkManage = new QNetworkAccessManager(this);
+     request->setHeader(QNetworkRequest::ContentTypeHeader,
+@@ -223,6 +342,10 @@ MainWindow::MainWindow(QWidget *parent)
+ 
+ MainWindow::~MainWindow()
+ {
++    if (vehicleIoInput) {
++        vehicleIoInput->stop();
++    }
++
+     if (alarmCycleTimer) {
+         alarmCycleTimer->stop();
+     }
+@@ -232,7 +355,11 @@ MainWindow::~MainWindow()
+     alarmManager.clear();
+ 
+     if (monitor) {
++        // myStop() stops active camera/device work. Monitor destruction then
++        // releases the RTSP server and finalizes the active MP4 segment.
+         monitor->myStop();
++        Monitor::destroyInstance();
++        monitor = nullptr;
+     }
+ 
+     // Silence the buzzer before destroying it to ensure the GPIO line is
+diff --git a/gui/mainwindow.h b/gui/mainwindow.h
+index 908b891..ae2528b 100644
+--- a/gui/mainwindow.h
++++ b/gui/mainwindow.h
+@@ -26,6 +26,8 @@
+ #include <QPoint>
+ QT_BEGIN_NAMESPACE
+ namespace Ui { class MainWindow; }
++
++class VehicleIoInput;
+ QT_END_NAMESPACE
+ 
+ class MainWindow : public QMainWindow
+@@ -132,6 +134,7 @@ private:
+     QNetworkAccessManager *networkManage;
+     QNetworkRequest *request;
+     vehicledevice::BuzzerDevice *buzzer;
++    VehicleIoInput *vehicleIoInput = nullptr;
+     vehiclealarm::AlarmManager alarmManager;
+     vehiclealarm::TemperatureAlarmPolicy temperatureAlarmPolicy;
+     QTimer *alarmCycleTimer = nullptr;
