@@ -1,4 +1,4 @@
-# RK3588S 智能车载终端 — 应用层
+# RK3588S 智能车载终端
 
 基于 RK3588S 的嵌入式 Linux 智能车载终端的**应用层**代码（Qt/C++17）。负责图像采集与编码（MIPI CSI → MPP/RGA → RTSP / H.264 / H.265）、目标检测（RKNN / YOLOv5）、GUI（Qt Widgets）、传感器接入（DHT11 / AP3216C / MPU6050 / GPS / 按键 / 蜂鸣器）、车辆信号输入、语音链路（ASR / KWS / TTS 编排，基于 sherpa-onnx）以及本地存储与网络。
 
